@@ -9,6 +9,9 @@
 #include <ngx_core.h>
 #include <ngx_http.h>
 
+#if (NGX_HTTP_UPSTREAM_CHECK)
+#include "ngx_http_upstream_check_module.h"
+#endif
 
 typedef struct {
     /* the round robin data must be first */
@@ -208,6 +211,16 @@ ngx_http_upstream_get_ip_hash_peer(ngx_peer_connection_t *pc, void *data)
             goto next;
         }
 
+#if (NGX_HTTP_UPSTREAM_CHECK)
+        ngx_log_debug1(NGX_LOG_DEBUG_HTTP, pc->log, 0,
+                       "get ip_hash peer, check_index: %ui",
+                       peer->check_index);
+
+        if (ngx_http_upstream_check_peer_down(peer->check_index)) {
+            goto next;
+        }
+#endif
+
         if (peer->max_fails
             && peer->fails >= peer->max_fails
             && now - peer->checked <= peer->fail_timeout)
@@ -237,6 +250,9 @@ ngx_http_upstream_get_ip_hash_peer(ngx_peer_connection_t *pc, void *data)
     pc->socklen = peer->socklen;
     pc->name = &peer->name;
 
+#if (T_NGX_HTTP_DYNAMIC_RESOLVE)
+    pc->host = &peer->host;
+#endif
     peer->conns++;
 
     if (now - peer->checked > peer->fail_timeout) {
